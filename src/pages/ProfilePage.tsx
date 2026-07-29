@@ -64,7 +64,7 @@ export const ProfilePage: React.FC = () => {
             <h3 className="font-heading text-sm font-bold text-white uppercase tracking-wider">
               Academic & Institutional Credits
             </h3>
-            <p className="text-xs text-stone-300">Community Engagement System</p>
+            <p className="text-xs text-stone-300">Municipal Waste Management Portal</p>
           </div>
         </div>
 

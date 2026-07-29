@@ -28,7 +28,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onContinue }) => {
 
         <div className="flex items-center gap-2 bg-[#4A4E69]/40 px-3 py-1.5 rounded-full border border-[#9A8C98]/30 text-xs text-stone-200">
           <Award className="w-4 h-4 text-amber-300" />
-          <span>Community Engagement Project</span>
+          <span>Municipal Waste Portal</span>
         </div>
       </div>
 

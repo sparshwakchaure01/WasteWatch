@@ -22,7 +22,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, isSidebarOpen }) => {
   const { currentUser, role, switchDemoRole, logout } = useAuth();
-  const { setActiveTab, stats } = useApp();
+  const { setActiveTab, stats, usersList } = useApp();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
 
   const getRoleBadgeStyle = (r: UserRole) => {
@@ -121,7 +121,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, isSidebarOpen }
                   <button
                     key={r}
                     onClick={() => {
-                      switchDemoRole(r);
+                      switchDemoRole(r, usersList);
                       setShowRoleMenu(false);
                       setActiveTab('dashboard');
                     }}

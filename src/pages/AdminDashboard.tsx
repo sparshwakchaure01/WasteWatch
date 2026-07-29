@@ -145,6 +145,22 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="space-y-3">
             <div
+              onClick={() => setActiveTab('my-complaints')}
+              className="p-4 rounded-xl bg-[#F2E9E4]/40 hover:bg-[#F2E9E4] border border-[#C9ADA7]/40 cursor-pointer transition-colors space-y-1"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#22223B] flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-emerald-700" />
+                  <span>All Complaints ({stats.totalComplaints})</span>
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#4A4E69]" />
+              </div>
+              <p className="text-[11px] text-[#4A4E69]">
+                View, filter, manage, or delete city-wide waste reports.
+              </p>
+            </div>
+
+            <div
               onClick={() => setActiveTab('manage-users')}
               className="p-4 rounded-xl bg-[#F2E9E4]/40 hover:bg-[#F2E9E4] border border-[#C9ADA7]/40 cursor-pointer transition-colors space-y-1"
             >

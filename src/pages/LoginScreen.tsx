@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
-import { Phone, ShieldCheck, ArrowRight, Lock, Sparkles, Building2, User } from 'lucide-react';
+import { Phone, ShieldCheck, ArrowRight, Lock, Sparkles, Building2, User, AlertCircle } from 'lucide-react';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -9,10 +10,10 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const { loginWithPhone, switchDemoRole } = useAuth();
+  const { usersList } = useApp();
   const [phoneNumber, setPhoneNumber] = useState('+919823012345');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('Reporter');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,8 +28,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     setTimeout(() => {
       setIsLoading(false);
       setStep('otp');
-      setOtp('123456'); // Pre-fill mock OTP for convenience
-    }, 600);
+      setOtp('123456'); // Pre-fill mock OTP code
+    }, 500);
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -38,18 +39,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       return;
     }
     setIsLoading(true);
+    setError('');
     try {
-      await loginWithPhone(phoneNumber, otp, selectedRole);
-      onLoginSuccess();
+      const result = await loginWithPhone(phoneNumber, otp, usersList);
+      if (result.success) {
+        onLoginSuccess();
+      } else {
+        setError(result.error || 'Access Denied. Please contact the System Administrator.');
+      }
     } catch (err) {
-      setError('OTP verification failed');
+      setError('Access Denied. Please contact the System Administrator.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDemoQuickLogin = (role: UserRole) => {
-    switchDemoRole(role);
+    switchDemoRole(role, usersList);
     onLoginSuccess();
   };
 
@@ -69,31 +75,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </p>
         </div>
 
+        {/* Security Banner Notice */}
+        <div className="bg-[#4A4E69]/10 border border-[#9A8C98]/30 p-3.5 rounded-2xl text-[11px] text-[#22223B] space-y-1">
+          <div className="font-bold flex items-center gap-1.5 text-[#22223B]">
+            <ShieldCheck className="w-4 h-4 text-[#4A4E69]" />
+            <span>Pre-Registered Mobile Login</span>
+          </div>
+          <p className="text-[#4A4E69]">
+            Public registration is closed. Only accounts provisioned by the System Administrator may log in.
+          </p>
+        </div>
+
         {/* Form Container */}
         {step === 'phone' ? (
           <form onSubmit={handleSendOtp} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-[#22223B] mb-1">
-                User Role Selection *
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(['Reporter', 'Local Body', 'Administrator'] as UserRole[]).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setSelectedRole(r)}
-                    className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
-                      selectedRole === r
-                        ? 'bg-[#22223B] text-white border-[#22223B] shadow'
-                        : 'bg-stone-50 text-[#4A4E69] border-stone-200 hover:bg-stone-100'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div>
               <label className="block text-xs font-semibold text-[#22223B] mb-1">
                 Registered Phone Number *
@@ -111,7 +106,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               </div>
             </div>
 
-            {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
+            {error && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span className="font-semibold">{error}</span>
+              </div>
+            )}
 
             <button
               type="submit"
@@ -119,7 +119,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               className="w-full py-3 bg-[#22223B] hover:bg-[#333355] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow transition-all"
             >
               {isLoading ? (
-                <span>Sending OTP...</span>
+                <span>Checking Database...</span>
               ) : (
                 <>
                   <span>Send OTP Code</span>
@@ -158,18 +158,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 />
               </div>
               <p className="text-[10px] text-stone-500 mt-1">
-                Demo code: <strong>123456</strong>
+                Demo verification code: <strong>123456</strong>
               </p>
             </div>
 
-            {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
+            {error && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span className="font-semibold">{error}</span>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={isLoading}
               className="w-full py-3 bg-[#22223B] hover:bg-[#333355] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow transition-all"
             >
-              {isLoading ? 'Verifying OTP...' : 'Verify & Enter Dashboard'}
+              {isLoading ? 'Verifying Phone Access...' : 'Verify & Enter Portal'}
             </button>
           </form>
         )}
@@ -178,35 +183,38 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         <div className="pt-4 border-t border-stone-200 space-y-2">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#4A4E69] uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span>Instant Demo Logins (Evaluator Access)</span>
+            <span>Pre-Registered Demo Accounts</span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             <button
+              type="button"
               onClick={() => handleDemoQuickLogin('Reporter')}
               className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 text-left transition-colors"
             >
               <User className="w-3.5 h-3.5 mb-1 text-emerald-700" />
               <div className="text-[11px] font-bold">Reporter</div>
-              <div className="text-[9px] text-emerald-700">Citizen account</div>
+              <div className="text-[9px] text-emerald-700">Sparsh W.</div>
             </button>
 
             <button
+              type="button"
               onClick={() => handleDemoQuickLogin('Local Body')}
               className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-900 text-left transition-colors"
             >
               <Building2 className="w-3.5 h-3.5 mb-1 text-blue-700" />
               <div className="text-[11px] font-bold">Local Body</div>
-              <div className="text-[9px] text-blue-700">Municipal Inspector</div>
+              <div className="text-[9px] text-blue-700">Insp. Rajesh P.</div>
             </button>
 
             <button
+              type="button"
               onClick={() => handleDemoQuickLogin('Administrator')}
               className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-left transition-colors"
             >
               <ShieldCheck className="w-3.5 h-3.5 mb-1 text-amber-700" />
               <div className="text-[11px] font-bold">Admin</div>
-              <div className="text-[9px] text-amber-700">System admin</div>
+              <div className="text-[9px] text-amber-700">Dr. S. K. Shinde</div>
             </button>
           </div>
         </div>
@@ -214,3 +222,4 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     </div>
   );
 };
+

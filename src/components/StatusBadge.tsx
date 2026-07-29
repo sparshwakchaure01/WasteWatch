@@ -15,6 +15,15 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
   }[size];
 
   switch (status) {
+    case 'Pending Approval':
+      return (
+        <span
+          className={`inline-flex items-center rounded-full bg-purple-100 text-purple-900 border border-purple-300/60 ${sizeClasses}`}
+        >
+          <Clock className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+          <span>Pending Approval</span>
+        </span>
+      );
     case 'Pending':
       return (
         <span
@@ -42,6 +51,15 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
         >
           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
           <span>{status}</span>
+        </span>
+      );
+    case 'Rejected':
+      return (
+        <span
+          className={`inline-flex items-center rounded-full bg-rose-100 text-rose-900 border border-rose-300/60 ${sizeClasses}`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5 text-rose-700 shrink-0" />
+          <span>Rejected</span>
         </span>
       );
     case 'Active':

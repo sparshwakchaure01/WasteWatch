@@ -73,7 +73,7 @@ export const MyComplaintsPage: React.FC = () => {
             <span>Filter Status:</span>
           </div>
 
-          {['All', 'Pending', 'In Progress', 'Resolved'].map((st) => (
+          {['All', 'Pending Approval', 'Pending', 'In Progress', 'Resolved', 'Rejected'].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}

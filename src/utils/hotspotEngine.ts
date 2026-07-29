@@ -6,22 +6,27 @@ const MIN_COMPLAINTS_FOR_HOTSPOT = 3; // Exactly 3 or more complaints
 
 /**
  * Scans a list of complaints and calculates active Hotspots (Frequent Dumping Zones).
- * Groups active complaints within ~100m radius of each other.
+ * Groups active approved complaints within ~100m radius of each other.
+ * IMPORTANT: Only Approved complaints (Pending, In Progress) are evaluated.
+ * Pending Approval and Rejected complaints MUST NEVER create hotspots.
  */
 export function detectHotspots(complaints: Complaint[]): Hotspot[] {
-  // Only consider active/recent complaints (excluding resolved ones if needed, or all complaints)
-  const activeComplaints = complaints.filter((c) => c.status !== 'Resolved');
+  // Only consider approved active complaints (Pending or In Progress)
+  // Exclude Pending Approval, Rejected, and Resolved complaints
+  const activeApprovedComplaints = complaints.filter(
+    (c) => c.status === 'Pending' || c.status === 'In Progress'
+  );
   const processedComplaintIds = new Set<string>();
   const hotspots: Hotspot[] = [];
 
-  for (let i = 0; i < activeComplaints.length; i++) {
-    const current = activeComplaints[i];
+  for (let i = 0; i < activeApprovedComplaints.length; i++) {
+    const current = activeApprovedComplaints[i];
     if (processedComplaintIds.has(current.id)) continue;
 
     const cluster: Complaint[] = [current];
 
-    for (let j = i + 1; j < activeComplaints.length; j++) {
-      const neighbor = activeComplaints[j];
+    for (let j = i + 1; j < activeApprovedComplaints.length; j++) {
+      const neighbor = activeApprovedComplaints[j];
       if (processedComplaintIds.has(neighbor.id)) continue;
 
       const dist = haversineDistanceMeters(
@@ -79,3 +84,4 @@ export function detectHotspots(complaints: Complaint[]): Hotspot[] {
 
   return hotspots;
 }
+

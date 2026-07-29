@@ -1,13 +1,18 @@
 export type UserRole = 'Reporter' | 'Local Body' | 'Administrator';
 
+export type UserStatus = 'Active' | 'Deactivated';
+
 export interface User {
   uid: string;
   fullName: string;
   phone: string;
   role: UserRole;
+  status: UserStatus;
   department?: string;
   jurisdictionZone?: string;
+  createdBy?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type WasteCategory =
@@ -18,7 +23,12 @@ export type WasteCategory =
   | 'Electronic Waste'
   | 'Other';
 
-export type ComplaintStatus = 'Pending' | 'In Progress' | 'Resolved';
+export type ComplaintStatus =
+  | 'Pending Approval'
+  | 'Pending'
+  | 'In Progress'
+  | 'Resolved'
+  | 'Rejected';
 
 export interface GPSLocation {
   latitude: number;
@@ -38,6 +48,11 @@ export interface Complaint {
   category: WasteCategory;
   description: string;
   status: ComplaintStatus;
+  rejectionReason?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
   hotspotId?: string;
   resolvedBy?: string;
   resolutionNotes?: string;
@@ -59,11 +74,38 @@ export interface Hotspot {
   updatedAt: string;
 }
 
+export type AuditAction =
+  | 'User Creation'
+  | 'User Edit'
+  | 'User Deactivation'
+  | 'User Activation'
+  | 'User Deletion'
+  | 'Complaint Submission'
+  | 'Complaint Approval'
+  | 'Complaint Rejection'
+  | 'Complaint Deletion'
+  | 'Status Update';
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  userUid: string;
+  userName: string;
+  userRole: UserRole;
+  action: AuditAction;
+  complaintId?: string;
+  targetUserId?: string;
+  details: string;
+}
+
 export interface SystemStats {
   totalComplaints: number;
+  pendingApprovalCount: number;
   pendingCount: number;
   inProgressCount: number;
   resolvedCount: number;
+  rejectedCount: number;
   activeHotspots: number;
   categoryDistribution: Record<WasteCategory, number>;
 }
+

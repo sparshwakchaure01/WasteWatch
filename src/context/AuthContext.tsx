@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { INITIAL_USERS } from '../data/initialData';
+import { findUserByPhoneInFirestore } from '../services/firebaseService';
 
 interface AuthContextType {
   currentUser: User | null;
   role: UserRole;
   isLoggedIn: boolean;
-  loginWithPhone: (phone: string, otp: string, role?: UserRole) => Promise<boolean>;
-  switchDemoRole: (role: UserRole) => void;
+  loginWithPhone: (phone: string, otp: string, usersList: User[]) => Promise<{ success: boolean; error?: string }>;
+  switchDemoRole: (role: UserRole, usersList: User[]) => void;
   logout: () => void;
   updateUserProfile: (data: Partial<User>) => void;
 }
@@ -20,7 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { return INITIAL_USERS[0]; }
     }
-    return INITIAL_USERS[0]; // Default to reporter
+    return INITIAL_USERS[0];
   });
 
   const role = currentUser?.role || 'Reporter';
@@ -33,37 +34,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
-  const loginWithPhone = async (phone: string, otp: string, desiredRole: UserRole = 'Reporter'): Promise<boolean> => {
-    // Simulate real phone OTP verification
-    await new Promise((res) => setTimeout(res, 800));
+  /**
+   * Phone Verification with Firestore Pre-Registered User Check.
+   * Self-registration is disabled. Users MUST be created in Firestore by an Administrator.
+   */
+  const loginWithPhone = async (
+    phone: string,
+    otp: string,
+    usersList: User[]
+  ): Promise<{ success: boolean; error?: string }> => {
+    const normalizedPhone = phone.trim().replace(/\s+/g, '');
 
-    // Find existing user or create a new registered user
-    let user = INITIAL_USERS.find((u) => u.phone === phone);
-    if (!user) {
-      user = {
-        uid: `user_${Date.now()}`,
-        fullName: desiredRole === 'Local Body' ? 'Officer ' + phone.slice(-4) : 'Citizen Reporter',
-        phone,
-        role: desiredRole,
-        createdAt: new Date().toISOString()
+    // 1. Try querying Firestore first
+    let matchedUser: User | null = await findUserByPhoneInFirestore(phone);
+
+    // 2. Fallback to local users list if network/offline
+    if (!matchedUser) {
+      matchedUser = usersList.find(
+        (u) => u.phone.trim().replace(/\s+/g, '') === normalizedPhone
+      ) || null;
+    }
+
+    if (!matchedUser) {
+      return {
+        success: false,
+        error: 'Access Denied. Contact Administrator.',
       };
     }
-    setCurrentUser(user);
-    return true;
+
+    if (matchedUser.status === 'Deactivated') {
+      return {
+        success: false,
+        error: 'Account Deactivated. Please contact the System Administrator.',
+      };
+    }
+
+    setCurrentUser(matchedUser);
+    return { success: true };
   };
 
-  const switchDemoRole = (targetRole: UserRole) => {
-    const matchedUser = INITIAL_USERS.find((u) => u.role === targetRole);
+  const switchDemoRole = (targetRole: UserRole, usersList: User[]) => {
+    const matchedUser = usersList.find((u) => u.role === targetRole && u.status === 'Active');
     if (matchedUser) {
       setCurrentUser(matchedUser);
     } else {
-      setCurrentUser({
+      const fallback = INITIAL_USERS.find((u) => u.role === targetRole) || {
         uid: `demo_${targetRole.toLowerCase()}`,
         fullName: `Demo ${targetRole}`,
         phone: '+919800000000',
         role: targetRole,
+        status: 'Active' as const,
         createdAt: new Date().toISOString()
-      });
+      };
+      setCurrentUser(fallback);
     }
   };
 

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
 import { MapWidget } from '../components/MapWidget';
+import { Complaint } from '../types';
 import {
   Building2,
   AlertOctagon,
@@ -14,21 +15,67 @@ import {
   ShieldCheck,
   MapPin,
   ListFilter,
+  CheckCircle,
+  XCircle,
+  Eye,
+  AlertTriangle,
+  MessageSquare,
 } from 'lucide-react';
 
 export const LocalBodyDashboard: React.FC = () => {
   const { currentUser } = useAuth();
-  const { complaints, hotspots, setActiveTab, viewComplaintDetails, stats } = useApp();
+  const { complaints, hotspots, setActiveTab, viewComplaintDetails, stats, approveComplaint, rejectComplaint } = useApp();
 
+  // Rejection Modal state
+  const [rejectingComplaint, setRejectingComplaint] = useState<Complaint | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectError, setRejectError] = useState('');
+
+  // Queue tab filter
+  const [activeQueueTab, setActiveQueueTab] = useState<'pending-approval' | 'pending' | 'in-progress' | 'all'>('pending-approval');
+
+  const pendingApprovalComplaints = complaints.filter((c) => c.status === 'Pending Approval');
   const pendingComplaints = complaints.filter((c) => c.status === 'Pending');
   const inProgressComplaints = complaints.filter((c) => c.status === 'In Progress');
+  const resolvedComplaints = complaints.filter((c) => c.status === 'Resolved');
+  const rejectedComplaints = complaints.filter((c) => c.status === 'Rejected');
+
+  const handleOpenReject = (c: Complaint, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setRejectingComplaint(c);
+    setRejectionReason('');
+    setRejectError('');
+  };
+
+  const handleConfirmReject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectionReason.trim()) {
+      setRejectError('Officer rejection reason is mandatory before rejecting.');
+      return;
+    }
+    if (rejectingComplaint) {
+      rejectComplaint(
+        rejectingComplaint.id,
+        rejectionReason.trim(),
+        currentUser?.fullName || 'Municipal Officer',
+        currentUser?.uid
+      );
+      setRejectingComplaint(null);
+      setRejectionReason('');
+    }
+  };
+
+  const handleApprove = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    approveComplaint(id, currentUser?.fullName || 'Municipal Officer', currentUser?.uid);
+  };
 
   return (
     <div className="space-y-6">
       {/* Header Banner */}
       <div className="bg-[#22223B] text-white p-6 sm:p-8 rounded-3xl border border-[#4A4E69] shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold uppercase tracking-wider text-[#C9ADA7] bg-[#4A4E69]/50 px-3 py-1 rounded-full border border-[#9A8C98]/30">
               Sangamner Municipal Corporation
             </span>
@@ -37,10 +84,10 @@ export const LocalBodyDashboard: React.FC = () => {
             </span>
           </div>
           <h2 className="font-heading text-2xl sm:text-3xl font-extrabold text-white">
-            Municipal Command Center
+            Municipal Inspector Dashboard
           </h2>
           <p className="text-stone-300 text-xs sm:text-sm">
-            Officer: <strong>{currentUser?.fullName || 'Sanitary Inspector'}</strong> | Managing city-wide waste reports, dispatches, and illegal dumping hotspots.
+            Officer: <strong>{currentUser?.fullName || 'Sanitary Inspector'}</strong> | Managing complaint approvals, dispatches, and illegal dumping hotspots.
           </p>
         </div>
 
@@ -55,125 +102,328 @@ export const LocalBodyDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-[18px] border border-[#F2E9E4] shadow-card space-y-2">
-          <div className="text-[10px] font-bold text-[#9A8C98] uppercase tracking-wider flex items-center justify-between">
-            <span>Total Complaints</span>
-            <ClipboardList className="w-4 h-4 text-[#4A4E69]" />
+      {/* Workflow Status Metrics Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Pending Approval */}
+        <div
+          onClick={() => setActiveQueueTab('pending-approval')}
+          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+            activeQueueTab === 'pending-approval'
+              ? 'bg-purple-100 border-purple-400 shadow-md ring-2 ring-purple-500'
+              : 'bg-white border-purple-200/80 hover:bg-purple-50/50 shadow-card'
+          }`}
+        >
+          <div className="text-[10px] font-bold text-purple-800 uppercase tracking-wider flex items-center justify-between">
+            <span>Pending Review</span>
+            <Clock className="w-4 h-4 text-purple-600" />
           </div>
-          <div className="text-3xl font-light text-[#22223B]">{stats.totalComplaints}</div>
-          <p className="text-[11px] text-[#4A4E69]">City-wide reports</p>
+          <div className="text-2xl font-bold text-purple-900 mt-1">{stats.pendingApprovalCount}</div>
+          <p className="text-[10px] text-purple-700 mt-0.5">Approval required</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[18px] border border-amber-200/60 shadow-card space-y-2">
+        {/* Pending */}
+        <div
+          onClick={() => setActiveQueueTab('pending')}
+          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+            activeQueueTab === 'pending'
+              ? 'bg-amber-100 border-amber-400 shadow-md ring-2 ring-amber-500'
+              : 'bg-white border-amber-200/80 hover:bg-amber-50/50 shadow-card'
+          }`}
+        >
           <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center justify-between">
-            <span>Action Required</span>
+            <span>Pending Action</span>
             <Clock className="w-4 h-4 text-amber-600" />
           </div>
-          <div className="text-3xl font-light text-amber-900">{stats.pendingCount}</div>
-          <p className="text-[11px] text-amber-800/80">Pending dispatch</p>
+          <div className="text-2xl font-bold text-amber-900 mt-1">{stats.pendingCount}</div>
+          <p className="text-[10px] text-amber-800">Approved & awaiting crew</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[18px] border border-sky-200/60 shadow-card space-y-2">
+        {/* In Progress */}
+        <div
+          onClick={() => setActiveQueueTab('in-progress')}
+          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+            activeQueueTab === 'in-progress'
+              ? 'bg-sky-100 border-sky-400 shadow-md ring-2 ring-sky-500'
+              : 'bg-white border-sky-200/80 hover:bg-sky-50/50 shadow-card'
+          }`}
+        >
           <div className="text-[10px] font-bold text-sky-800 uppercase tracking-wider flex items-center justify-between">
-            <span>Under Clean-Up</span>
-            <Clock className="w-4 h-4 text-sky-600 animate-spin" />
+            <span>In Progress</span>
+            <Clock className="w-4 h-4 text-sky-600 animate-spin" style={{ animationDuration: '4s' }} />
           </div>
-          <div className="text-3xl font-light text-sky-900">{stats.inProgressCount}</div>
-          <p className="text-[11px] text-sky-800/80">Team dispatched</p>
+          <div className="text-2xl font-bold text-sky-900 mt-1">{stats.inProgressCount}</div>
+          <p className="text-[10px] text-sky-800">Vehicle dispatched</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[18px] border border-rose-200/60 shadow-card space-y-2">
-          <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider flex items-center justify-between">
-            <span>Active Hotspots</span>
-            <AlertOctagon className="w-4 h-4 text-rose-600" />
+        {/* Resolved */}
+        <div
+          onClick={() => setActiveQueueTab('all')}
+          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+            activeQueueTab === 'all'
+              ? 'bg-emerald-100 border-emerald-400 shadow-md ring-2 ring-emerald-500'
+              : 'bg-white border-emerald-200/80 hover:bg-emerald-50/50 shadow-card'
+          }`}
+        >
+          <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center justify-between">
+            <span>Resolved</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-3xl font-light text-rose-900">{stats.activeHotspots}</div>
-          <p className="text-[11px] text-rose-800/80">≥3 reports within 100m</p>
+          <div className="text-2xl font-bold text-emerald-900 mt-1">{stats.resolvedCount}</div>
+          <p className="text-[10px] text-emerald-800">Cleared & sanitized</p>
+        </div>
+
+        {/* Rejected */}
+        <div
+          onClick={() => setActiveQueueTab('all')}
+          className="p-4 rounded-2xl border bg-white border-rose-200/80 shadow-card space-y-0.5"
+        >
+          <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider flex items-center justify-between">
+            <span>Rejected</span>
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
+          </div>
+          <div className="text-2xl font-bold text-rose-900 mt-1">{stats.rejectedCount}</div>
+          <p className="text-[10px] text-rose-800">Private / Invalid zone</p>
         </div>
       </div>
 
-      {/* Map & Action Queue */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sangamner City-Wide OpenStreetMap View */}
-        <div className="lg:col-span-2 bg-white p-5 rounded-[18px] border border-[#F2E9E4] shadow-card space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-heading text-sm font-bold text-[#22223B]">
-                Live Dumping GIS Map & Hotspot Clusters
+      {/* Pending Approval Officer Queue */}
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-[#F2E9E4] shadow-card space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#F2E9E4] pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-purple-700" />
+              <h3 className="font-heading text-lg font-bold text-[#22223B]">
+                Pending Approval Review Queue
               </h3>
-              <p className="text-xs text-[#4A4E69]">
-                Red circles denote Frequent Dumping Zones requiring priority clean-up.
-              </p>
+              <span className="bg-purple-100 text-purple-900 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                {pendingApprovalComplaints.length}
+              </span>
             </div>
+            <p className="text-xs text-[#4A4E69] mt-0.5">
+              Review new citizen waste reports. Approved reports become active dispatches and contribute to GIS hotspots.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 bg-stone-100 p-1 rounded-xl">
             <button
-              onClick={() => setActiveTab('hotspots')}
-              className="text-xs font-bold text-rose-700 hover:underline flex items-center gap-1"
+              onClick={() => setActiveQueueTab('pending-approval')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeQueueTab === 'pending-approval' ? 'bg-purple-700 text-white shadow' : 'text-stone-600 hover:text-black'
+              }`}
             >
-              <span>Hotspots ({hotspots.length})</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              Approval Queue ({pendingApprovalComplaints.length})
+            </button>
+            <button
+              onClick={() => setActiveQueueTab('pending')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeQueueTab === 'pending' ? 'bg-[#22223B] text-white shadow' : 'text-stone-600 hover:text-black'
+              }`}
+            >
+              Dispatch Queue ({pendingComplaints.length})
+            </button>
+            <button
+              onClick={() => setActiveQueueTab('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeQueueTab === 'all' ? 'bg-[#22223B] text-white shadow' : 'text-stone-600 hover:text-black'
+              }`}
+            >
+              All Records
             </button>
           </div>
-
-          <MapWidget
-            complaints={complaints}
-            hotspots={hotspots}
-            height="360px"
-            onComplaintClick={viewComplaintDetails}
-          />
         </div>
 
-        {/* Priority Dispatches Queue */}
-        <div className="bg-white p-5 rounded-[18px] border border-[#F2E9E4] shadow-card space-y-4">
-          <div className="flex items-center justify-between border-b border-[#F2E9E4] pb-3">
-            <div>
-              <h3 className="font-heading text-sm font-bold text-[#22223B]">
-                Pending Dispatches Queue
-              </h3>
-              <p className="text-[11px] text-[#4A4E69]">Click to assign officer or update status</p>
-            </div>
-            <span className="text-xs bg-amber-100 text-amber-900 font-bold px-2.5 py-0.5 rounded-full">
-              {pendingComplaints.length}
-            </span>
-          </div>
-
-          {pendingComplaints.length === 0 ? (
-            <div className="text-center py-10 space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-              <p className="text-xs font-semibold text-[#22223B]">All pending reports assigned!</p>
-              <p className="text-[11px] text-[#4A4E69]">No unassigned dumping complaints.</p>
+        {/* Display pending approval queue or filtered list */}
+        {activeQueueTab === 'pending-approval' && (
+          pendingApprovalComplaints.length === 0 ? (
+            <div className="text-center py-10 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-2">
+              <CheckCircle className="w-10 h-10 text-purple-600 mx-auto" />
+              <p className="text-sm font-bold text-[#22223B]">No Complaints Pending Approval!</p>
+              <p className="text-xs text-[#4A4E69]">All submitted reports have been reviewed by municipal officers.</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-              {pendingComplaints.map((c) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingApprovalComplaints.map((c) => (
                 <div
                   key={c.id}
-                  onClick={() => viewComplaintDetails(c.id)}
-                  className="p-3.5 rounded-2xl bg-amber-50/50 hover:bg-amber-100/60 border border-amber-200/80 cursor-pointer transition-colors space-y-2"
+                  className="bg-white border-2 border-purple-200 rounded-2xl p-4 shadow-sm hover:border-purple-400 transition-all space-y-3 flex flex-col justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#22223B]">#{c.id}</span>
-                    <CategoryBadge category={c.category} showIcon={false} />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-purple-900 bg-purple-100 px-2.5 py-0.5 rounded-md">
+                          #{c.id}
+                        </span>
+                        <StatusBadge status={c.status} size="sm" />
+                      </div>
+                      <span className="text-[10px] text-stone-500 font-medium">
+                        {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-3 items-start">
+                      <img
+                        src={c.photoUrl}
+                        alt="Waste location"
+                        className="w-20 h-20 rounded-xl object-cover shrink-0 border border-stone-200"
+                      />
+                      <div className="space-y-1 min-w-0">
+                        <CategoryBadge category={c.category} size="sm" />
+                        <p className="text-xs font-bold text-[#22223B] truncate flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          <span className="truncate">{c.locationName}</span>
+                        </p>
+                        <p className="text-xs text-stone-600 line-clamp-2">{c.description}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-stone-50 p-2 rounded-xl text-[11px] text-[#4A4E69] flex justify-between items-center">
+                      <span>Reporter: <strong>{c.reporterName}</strong> ({c.reporterPhone})</span>
+                    </div>
                   </div>
 
-                  <div className="text-xs font-semibold text-[#22223B] flex items-center gap-1.5 truncate">
-                    <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                    <span className="truncate">{c.locationName}</span>
-                  </div>
+                  {/* Actions Bar */}
+                  <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => viewComplaintDetails(c.id)}
+                      className="px-3 py-1.5 rounded-xl border border-stone-200 text-stone-700 hover:bg-stone-100 text-xs font-bold flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Details</span>
+                    </button>
 
-                  <div className="text-[11px] text-[#4A4E69] line-clamp-1">{c.description}</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => handleOpenReject(c, e)}
+                        className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-800 text-xs font-bold flex items-center gap-1 transition-colors"
+                      >
+                        <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Reject</span>
+                      </button>
 
-                  <div className="flex items-center justify-between text-[10px] text-stone-500 pt-1 border-t border-amber-200/60">
-                    <span>Logged {new Date(c.createdAt).toLocaleDateString()}</span>
-                    <span className="text-[#22223B] font-bold hover:underline">Take Action &rarr;</span>
+                      <button
+                        onClick={(e) => handleApprove(c.id, e)}
+                        className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow transition-colors"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Approve</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          )
+        )}
+
+        {/* Map & Dispatches View for other tabs */}
+        {activeQueueTab !== 'pending-approval' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-3">
+              <h4 className="font-bold text-xs text-[#22223B] uppercase tracking-wider">
+                Approved Dumping Map View
+              </h4>
+              <MapWidget
+                complaints={complaints}
+                hotspots={hotspots}
+                height="340px"
+                onComplaintClick={viewComplaintDetails}
+              />
+            </div>
+
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+              <h4 className="font-bold text-xs text-[#22223B] uppercase tracking-wider">
+                {activeQueueTab === 'pending' ? 'Pending Dispatches' : activeQueueTab === 'in-progress' ? 'Active Dispatches' : 'Complaints Overview'}
+              </h4>
+              {complaints
+                .filter((c) => {
+                  if (activeQueueTab === 'pending') return c.status === 'Pending';
+                  if (activeQueueTab === 'in-progress') return c.status === 'In Progress';
+                  return true;
+                })
+                .map((c) => (
+                  <div
+                    key={c.id}
+                    onClick={() => viewComplaintDetails(c.id)}
+                    className="p-3 rounded-2xl border bg-stone-50 hover:bg-stone-100/80 cursor-pointer transition-colors space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#22223B]">#{c.id}</span>
+                      <StatusBadge status={c.status} size="sm" />
+                    </div>
+                    <p className="text-xs font-semibold text-[#22223B] truncate">{c.locationName}</p>
+                    <p className="text-[11px] text-stone-500 line-clamp-1">{c.description}</p>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Rejection Modal Dialog */}
+      {rejectingComplaint && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-heading text-lg font-bold text-[#22223B]">
+                  Reject Complaint #{rejectingComplaint.id}
+                </h3>
+                <p className="text-xs text-[#4A4E69]">Provide official reason for rejection</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 bg-stone-50 p-3 rounded-xl">
+              Location: <strong>{rejectingComplaint.locationName}</strong><br />
+              Reporter: <strong>{rejectingComplaint.reporterName}</strong>
+            </p>
+
+            <form onSubmit={handleConfirmReject} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-[#22223B] mb-1">
+                  Rejection Reason *
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => {
+                    setRejectionReason(e.target.value);
+                    setRejectError('');
+                  }}
+                  placeholder="e.g. Reported location is on private property; outside municipal jurisdiction."
+                  rows={3}
+                  className="w-full p-3 text-xs border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 text-[#22223B]"
+                  required
+                />
+              </div>
+
+              {rejectError && <p className="text-xs font-bold text-rose-600">{rejectError}</p>}
+
+              <p className="text-[11px] text-stone-500">
+                Note: Rejected complaints will be visible only to the reporter with the rejection reason. They will never appear publicly or in statistics.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectingComplaint(null)}
+                  className="px-4 py-2 rounded-xl border border-stone-300 text-xs font-bold text-stone-700 hover:bg-stone-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

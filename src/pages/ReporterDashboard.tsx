@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
 import { MapWidget } from '../components/MapWidget';
-import { PlusCircle, ClipboardList, Clock, CheckCircle2, ArrowRight, MapPin } from 'lucide-react';
+import { PlusCircle, ClipboardList, Clock, CheckCircle2, ArrowRight, MapPin, AlertTriangle, ShieldAlert } from 'lucide-react';
 
 export const ReporterDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -15,9 +15,11 @@ export const ReporterDashboard: React.FC = () => {
     (c) => c.reporterId === currentUser?.uid || c.reporterPhone === currentUser?.phone
   );
 
+  const pendingApprovalCount = myComplaints.filter((c) => c.status === 'Pending Approval').length;
   const pendingCount = myComplaints.filter((c) => c.status === 'Pending').length;
   const inProgressCount = myComplaints.filter((c) => c.status === 'In Progress').length;
   const resolvedCount = myComplaints.filter((c) => c.status === 'Resolved').length;
+  const rejectedCount = myComplaints.filter((c) => c.status === 'Rejected').length;
 
   return (
     <div className="space-y-6">
@@ -31,7 +33,7 @@ export const ReporterDashboard: React.FC = () => {
             Welcome back, {currentUser?.fullName || 'Reporter'}!
           </h2>
           <p className="text-stone-300 text-xs sm:text-sm">
-            Spot illegal garbage or construction waste in your neighborhood? Snap a photo and submit a geotagged complaint for instant municipal resolution.
+            Spot illegal garbage or construction waste in your neighborhood? Snap a photo and submit a geotagged complaint for municipal approval and dispatch.
           </p>
         </div>
 
@@ -45,45 +47,54 @@ export const ReporterDashboard: React.FC = () => {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-[18px] border border-[#F2E9E4] shadow-card space-y-2">
-          <div className="text-[10px] font-bold text-[#9A8C98] uppercase tracking-wider flex items-center justify-between">
-            <span>Total Reported</span>
-            <ClipboardList className="w-4 h-4 text-[#4A4E69]" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="bg-white p-4 rounded-2xl border border-purple-200 shadow-card space-y-1">
+          <div className="text-[10px] font-bold text-purple-800 uppercase tracking-wider flex items-center justify-between">
+            <span>Pending Review</span>
+            <Clock className="w-4 h-4 text-purple-600" />
           </div>
-          <div className="text-3xl font-light text-[#22223B]">{myComplaints.length}</div>
-          <p className="text-[11px] text-[#4A4E69]">Submitted reports</p>
+          <div className="text-2xl font-bold text-purple-900">{pendingApprovalCount}</div>
+          <p className="text-[10px] text-purple-700">Awaiting municipal officer</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[18px] border border-amber-200/60 shadow-card space-y-2">
+        <div className="bg-white p-4 rounded-2xl border border-amber-200/80 shadow-card space-y-1">
           <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center justify-between">
-            <span>Pending Review</span>
+            <span>Pending Action</span>
             <Clock className="w-4 h-4 text-amber-600" />
           </div>
-          <div className="text-3xl font-light text-amber-900">{pendingCount}</div>
-          <p className="text-[11px] text-amber-800/80">Awaiting officer dispatch</p>
+          <div className="text-2xl font-bold text-amber-900">{pendingCount}</div>
+          <p className="text-[10px] text-amber-800">Approved & queued</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[18px] border border-sky-200/60 shadow-card space-y-2">
+        <div className="bg-white p-4 rounded-2xl border border-sky-200/80 shadow-card space-y-1">
           <div className="text-[10px] font-bold text-sky-800 uppercase tracking-wider flex items-center justify-between">
             <span>In Clean-Up</span>
-            <Clock className="w-4 h-4 text-sky-600 animate-spin" />
+            <Clock className="w-4 h-4 text-sky-600 animate-spin" style={{ animationDuration: '4s' }} />
           </div>
-          <div className="text-3xl font-light text-sky-900">{inProgressCount}</div>
-          <p className="text-[11px] text-sky-800/80">Municipal team active</p>
+          <div className="text-2xl font-bold text-sky-900">{inProgressCount}</div>
+          <p className="text-[10px] text-sky-800">Vehicle dispatched</p>
         </div>
 
-        <div className="bg-white p-5 rounded-[18px] border border-emerald-200/60 shadow-card space-y-2">
+        <div className="bg-white p-4 rounded-2xl border border-emerald-200/80 shadow-card space-y-1">
           <div className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center justify-between">
-            <span>Resolved Cases</span>
+            <span>Resolved</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
-          <div className="text-3xl font-light text-emerald-900">{resolvedCount}</div>
-          <p className="text-[11px] text-emerald-800/80">Site cleaned & verified</p>
+          <div className="text-2xl font-bold text-emerald-900">{resolvedCount}</div>
+          <p className="text-[10px] text-emerald-800">Site cleaned & verified</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-rose-200/80 shadow-card space-y-1">
+          <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider flex items-center justify-between">
+            <span>Rejected</span>
+            <AlertTriangle className="w-4 h-4 text-rose-600" />
+          </div>
+          <div className="text-2xl font-bold text-rose-900">{rejectedCount}</div>
+          <p className="text-[10px] text-rose-800">Private property / out of zone</p>
         </div>
       </div>
 
-      {/* Map & Recent Activity */}
+      {/* Map & Submissions Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* OpenStreetMap View */}
         <div className="lg:col-span-2 bg-white p-5 rounded-[18px] border border-[#F2E9E4] shadow-card space-y-3">
@@ -104,21 +115,21 @@ export const ReporterDashboard: React.FC = () => {
           </div>
 
           <MapWidget
-            complaints={myComplaints}
+            complaints={myComplaints.filter((c) => c.status !== 'Rejected')}
             height="320px"
             onComplaintClick={viewComplaintDetails}
           />
         </div>
 
-        {/* Recent Submissions Feed */}
+        {/* Submissions Feed with Rejection Details */}
         <div className="bg-white p-5 rounded-[18px] border border-[#F2E9E4] shadow-card space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-heading text-sm font-bold text-[#22223B]">Recent Submissions</h3>
+            <h3 className="font-heading text-sm font-bold text-[#22223B]">Your Complaints</h3>
             <button
               onClick={() => setActiveTab('my-complaints')}
               className="text-xs font-bold text-[#4A4E69] hover:underline"
             >
-              See All
+              See All ({myComplaints.length})
             </button>
           </div>
 
@@ -135,25 +146,41 @@ export const ReporterDashboard: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {myComplaints.slice(0, 4).map((c) => (
+              {myComplaints.slice(0, 5).map((c) => (
                 <div
                   key={c.id}
                   onClick={() => viewComplaintDetails(c.id)}
-                  className="p-3 rounded-2xl bg-[#F2E9E4]/50 hover:bg-[#F2E9E4] border border-[#9A8C98]/20 cursor-pointer transition-colors flex items-center gap-3"
+                  className={`p-3 rounded-2xl border cursor-pointer transition-colors space-y-2 ${
+                    c.status === 'Rejected'
+                      ? 'bg-rose-50/70 border-rose-200 hover:bg-rose-100/70'
+                      : 'bg-[#F2E9E4]/50 hover:bg-[#F2E9E4] border-[#9A8C98]/20'
+                  }`}
                 >
-                  <img
-                    src={c.photoUrl}
-                    alt={c.category}
-                    className="w-12 h-12 rounded-xl object-cover shrink-0 border border-stone-200"
-                  />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-bold text-[#22223B] truncate">{c.id}</span>
-                      <StatusBadge status={c.status} size="sm" />
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={c.photoUrl}
+                      alt={c.category}
+                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-stone-200"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs font-bold text-[#22223B] truncate">#{c.id}</span>
+                        <StatusBadge status={c.status} size="sm" />
+                      </div>
+                      <div className="text-[11px] text-[#4A4E69] truncate">{c.locationName}</div>
+                      <CategoryBadge category={c.category} showIcon={false} />
                     </div>
-                    <div className="text-[11px] text-[#4A4E69] truncate">{c.locationName}</div>
-                    <CategoryBadge category={c.category} showIcon={false} />
                   </div>
+
+                  {c.status === 'Rejected' && c.rejectionReason && (
+                    <div className="p-2 rounded-xl bg-rose-100/80 text-[11px] text-rose-900 border border-rose-200 space-y-0.5">
+                      <span className="font-bold flex items-center gap-1 text-rose-800">
+                        <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                        <span>Rejection Reason:</span>
+                      </span>
+                      <p className="text-rose-950 font-medium">{c.rejectionReason}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -163,3 +190,4 @@ export const ReporterDashboard: React.FC = () => {
     </div>
   );
 };
+

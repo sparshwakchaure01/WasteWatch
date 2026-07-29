@@ -144,6 +144,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
             {role === 'Administrator' && (
               <>
                 <button
+                  onClick={() => handleNav('my-complaints')}
+                  className={navClass('my-complaints')}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ClipboardList className="w-4 h-4" />
+                    <span>All Complaints</span>
+                  </div>
+                  <span className="text-[10px] bg-[#9A8C98]/20 text-[#C9ADA7] font-bold px-2 py-0.5 rounded-full">
+                    {stats.totalComplaints}
+                  </span>
+                </button>
+
+                <button
                   onClick={() => handleNav('manage-users')}
                   className={navClass('manage-users')}
                 >

@@ -2,29 +2,32 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "Registered user entity (Reporter, Local Body, or Administrator)",
+      "description": "Registered system user profile with assigned municipal or citizen role.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
-        "fullName": { "type": "string", "minLength": 2, "maxLength": 100 },
-        "phone": { "type": "string", "pattern": "^\\+?[0-9]{10,15}$" },
+        "uid": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 20 },
         "role": { "type": "string", "enum": ["Reporter", "Local Body", "Administrator"] },
+        "status": { "type": "string", "enum": ["Active", "Deactivated"] },
         "department": { "type": "string", "maxLength": 100 },
         "jurisdictionZone": { "type": "string", "maxLength": 100 },
-        "createdAt": { "type": "string" }
+        "createdBy": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "fullName", "phone", "role", "createdAt"]
+      "required": ["uid", "fullName", "phone", "role", "status", "createdAt"]
     },
     "Complaint": {
       "title": "Complaint",
-      "description": "Illegal waste dumping report submitted by a reporter",
+      "description": "Illegal dumping or municipal waste report.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "reporterId": { "type": "string" },
-        "reporterName": { "type": "string" },
-        "reporterPhone": { "type": "string" },
-        "photoUrl": { "type": "string" },
+        "id": { "type": "string", "maxLength": 64 },
+        "reporterId": { "type": "string", "maxLength": 128 },
+        "reporterName": { "type": "string", "maxLength": 100 },
+        "reporterPhone": { "type": "string", "maxLength": 20 },
+        "photoUrl": { "type": "string", "maxLength": 500000 },
         "latitude": { "type": "number" },
         "longitude": { "type": "number" },
         "locationName": { "type": "string", "maxLength": 200 },
@@ -32,48 +35,76 @@
           "type": "string",
           "enum": ["Plastic Waste", "Household Waste", "Construction Debris", "Garden Waste", "Electronic Waste", "Other"]
         },
-        "description": { "type": "string", "maxLength": 1000 },
-        "status": { "type": "string", "enum": ["Pending", "In Progress", "Resolved"] },
-        "hotspotId": { "type": "string" },
-        "resolvedBy": { "type": "string" },
-        "resolutionNotes": { "type": "string", "maxLength": 500 },
-        "resolvedAt": { "type": "string" },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "description": { "type": "string", "maxLength": 2000 },
+        "status": {
+          "type": "string",
+          "enum": ["Pending Approval", "Pending", "In Progress", "Resolved", "Rejected"]
+        },
+        "rejectionReason": { "type": "string", "maxLength": 1000 },
+        "rejectedBy": { "type": "string", "maxLength": 100 },
+        "rejectedAt": { "type": "string", "format": "date-time" },
+        "approvedBy": { "type": "string", "maxLength": 100 },
+        "approvedAt": { "type": "string", "format": "date-time" },
+        "hotspotId": { "type": "string", "maxLength": 64 },
+        "resolvedBy": { "type": "string", "maxLength": 100 },
+        "resolutionNotes": { "type": "string", "maxLength": 1000 },
+        "resolvedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "reporterId", "photoUrl", "latitude", "longitude", "category", "description", "status", "createdAt"]
+      "required": ["id", "reporterId", "reporterName", "reporterPhone", "latitude", "longitude", "locationName", "category", "description", "status", "createdAt"]
     },
     "Hotspot": {
       "title": "Hotspot",
-      "description": "Automatically detected frequent dumping zone (>= 3 complaints within ~100m)",
+      "description": "Geospatial cluster of frequent waste dumping reports.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
+        "id": { "type": "string", "maxLength": 64 },
         "centerLat": { "type": "number" },
         "centerLng": { "type": "number" },
-        "locationName": { "type": "string" },
-        "complaintIds": { "type": "array" },
+        "locationName": { "type": "string", "maxLength": 200 },
         "complaintCount": { "type": "number" },
         "status": { "type": "string", "enum": ["Active", "Under Clean-Up", "Cleared"] },
         "primaryCategory": { "type": "string" },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "centerLat", "centerLng", "complaintIds", "complaintCount", "status", "createdAt"]
+      "required": ["id", "centerLat", "centerLng", "locationName", "complaintCount", "status", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable administrative action log.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userUid": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userRole": { "type": "string" },
+        "action": { "type": "string" },
+        "complaintId": { "type": "string", "maxLength": 64 },
+        "targetUserId": { "type": "string", "maxLength": 128 },
+        "details": { "type": "string", "maxLength": 2000 }
+      },
+      "required": ["id", "timestamp", "userUid", "userName", "userRole", "action", "details"]
     }
   },
   "firestore": {
     "/users/{userId}": {
-      "schema": "User",
-      "description": "User profile collection"
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile accounts collection"
     },
     "/complaints/{complaintId}": {
-      "schema": "Complaint",
-      "description": "Illegal dumping complaints"
+      "schema": { "$ref": "#/entities/Complaint" },
+      "description": "Municipal waste dumping complaint reports"
     },
     "/hotspots/{hotspotId}": {
-      "schema": "Hotspot",
-      "description": "Frequent dumping zones detected automatically"
+      "schema": { "$ref": "#/entities/Hotspot" },
+      "description": "Geospatial waste accumulation hotspots"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "System audit and security action log"
     }
   }
 }
