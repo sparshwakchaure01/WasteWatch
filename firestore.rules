@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isLocalBodyOrAdmin() {
+      return isSignedIn() && (
+        getUserData().role == 'Local Body' || 
+        getUserData().role == 'Administrator'
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'Administrator';
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (
+        // Self creation during login/registration
+        isOwner(userId) || 
+        // Admin creating local body accounts
+        isAdmin()
+      );
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Complaints Collection
+    match /complaints/{complaintId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
+      allow update: if isLocalBodyOrAdmin() || (
+        // Reporter can update own complaint if still pending
+        isSignedIn() && 
+        resource.data.reporterId == request.auth.uid && 
+        resource.data.status == 'Pending'
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Frequent Dumping Zones (Hotspots) Collection
+    match /hotspots/{hotspotId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isLocalBodyOrAdmin();
+    }
+  }
+}

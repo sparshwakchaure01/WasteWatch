@@ -1,0 +1,6 @@
+{
+  "name": "WasteWatch",
+  "description": "Illegal Dumping Reporting System for Municipal Authorities and Community Reporters",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

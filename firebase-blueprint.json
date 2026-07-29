@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered user entity (Reporter, Local Body, or Administrator)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "phone": { "type": "string", "pattern": "^\\+?[0-9]{10,15}$" },
+        "role": { "type": "string", "enum": ["Reporter", "Local Body", "Administrator"] },
+        "department": { "type": "string", "maxLength": 100 },
+        "jurisdictionZone": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "fullName", "phone", "role", "createdAt"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Illegal waste dumping report submitted by a reporter",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "reporterName": { "type": "string" },
+        "reporterPhone": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "locationName": { "type": "string", "maxLength": 200 },
+        "category": {
+          "type": "string",
+          "enum": ["Plastic Waste", "Household Waste", "Construction Debris", "Garden Waste", "Electronic Waste", "Other"]
+        },
+        "description": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["Pending", "In Progress", "Resolved"] },
+        "hotspotId": { "type": "string" },
+        "resolvedBy": { "type": "string" },
+        "resolutionNotes": { "type": "string", "maxLength": 500 },
+        "resolvedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "reporterId", "photoUrl", "latitude", "longitude", "category", "description", "status", "createdAt"]
+    },
+    "Hotspot": {
+      "title": "Hotspot",
+      "description": "Automatically detected frequent dumping zone (>= 3 complaints within ~100m)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "centerLat": { "type": "number" },
+        "centerLng": { "type": "number" },
+        "locationName": { "type": "string" },
+        "complaintIds": { "type": "array" },
+        "complaintCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Under Clean-Up", "Cleared"] },
+        "primaryCategory": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "centerLat", "centerLng", "complaintIds", "complaintCount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection"
+    },
+    "/complaints/{complaintId}": {
+      "schema": "Complaint",
+      "description": "Illegal dumping complaints"
+    },
+    "/hotspots/{hotspotId}": {
+      "schema": "Hotspot",
+      "description": "Frequent dumping zones detected automatically"
+    }
+  }
+}
