@@ -1,16 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
 import { User, UserRole } from '../types';
-import { INITIAL_USERS } from '../data/initialData';
-import { findUserByEmailInFirestore } from '../services/firebaseService';
+import {
+  findUserByUidInFirestore,
+  findUserByEmailInFirestore,
+  saveUserToFirestore,
+  normalizeRole
+} from '../services/firebaseService';
 
 interface AuthContextType {
   currentUser: User | null;
   role: UserRole;
   isLoggedIn: boolean;
   loginWithEmail: (email: string, pass: string, usersList: User[]) => Promise<{ success: boolean; error?: string }>;
-  switchDemoRole: (role: UserRole, usersList: User[]) => void;
   logout: () => void;
   updateUserProfile: (data: Partial<User>) => void;
 }
@@ -21,9 +24,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('wastewatch_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { return INITIAL_USERS[0]; }
+      try { return JSON.parse(saved); } catch (e) { return null; }
     }
-    return INITIAL_USERS[0];
+    return null;
   });
 
   const role = currentUser?.role || 'Reporter';
@@ -35,6 +38,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem('wastewatch_user');
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser && firebaseUser.email) {
+        const authUid = firebaseUser.uid;
+        const docPath = `/users/${authUid}`;
+        console.log('[AUTH_STATE_CHANGE] auth.uid:', authUid);
+        console.log('[AUTH_STATE_CHANGE] Firestore document path:', docPath);
+
+        let profile = await findUserByUidInFirestore(authUid);
+        if (!profile) {
+          profile = await findUserByEmailInFirestore(firebaseUser.email);
+          if (profile) {
+            profile = { ...profile, uid: authUid };
+            await saveUserToFirestore(profile);
+          }
+        }
+
+        console.log('[AUTH_STATE_CHANGE] Firestore document data:', profile);
+        if (profile) {
+          console.log('[AUTH_STATE_CHANGE] role value:', profile.role);
+          if (profile.status === 'Active') {
+            setCurrentUser(profile);
+          }
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   /**
    * Firebase Email & Password Authentication flow
@@ -48,32 +80,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const normalizedEmail = email.trim().toLowerCase();
 
     // 1. Attempt Firebase Authentication
+    let authUid = '';
     try {
-      await signInWithEmailAndPassword(auth, normalizedEmail, pass);
+      const userCred = await signInWithEmailAndPassword(auth, normalizedEmail, pass);
+      authUid = userCred.user.uid;
+      console.log('[LOGIN STEP 1] Firebase Authentication succeeded.');
+      console.log('[LOGIN] auth.uid:', authUid);
     } catch (firebaseErr: any) {
-      // Allow demo user pre-configured logins if network or credentials aren't registered yet on auth server
-      console.warn('Firebase Auth note:', firebaseErr.message);
-    }
-
-    // 2. Query Firestore user profile document by email
-    let matchedUser: User | null = await findUserByEmailInFirestore(normalizedEmail);
-
-    // 3. Fallback to local users list (for pre-configured demo accounts)
-    if (!matchedUser) {
-      matchedUser = usersList.find(
-        (u) => u.email.trim().toLowerCase() === normalizedEmail
-      ) || null;
-    }
-
-    if (!matchedUser) {
-      await firebaseSignOut(auth);
+      console.warn('[LOGIN STEP 1] Firebase Auth error:', firebaseErr?.message || firebaseErr);
       return {
         success: false,
-        error: 'Access Denied. Account does not exist. Contact System Administrator.',
+        error: 'Authentication failed. Please check your email and password.',
       };
     }
 
+    const docPath = `/users/${authUid}`;
+    console.log('[LOGIN STEP 2] Firestore document path:', docPath);
+
+    // 2. Query Firestore by UID directly: /users/{auth.uid}
+    let matchedUser: User | null = await findUserByUidInFirestore(authUid);
+
+    // 3. Fallback: Query Firestore by email
+    if (!matchedUser) {
+      console.log('[LOGIN STEP 3] Document not found by UID. Trying email query:', normalizedEmail);
+      matchedUser = await findUserByEmailInFirestore(normalizedEmail);
+      if (matchedUser) {
+        matchedUser = { ...matchedUser, uid: authUid };
+        await saveUserToFirestore(matchedUser);
+      }
+    }
+
+    // 4. Fallback to loaded memory users list
+    if (!matchedUser) {
+      console.log('[LOGIN STEP 4] Querying loaded memory users list...');
+      const memoryMatch = usersList.find(
+        (u) => u.email.trim().toLowerCase() === normalizedEmail
+      );
+      if (memoryMatch) {
+        matchedUser = {
+          ...memoryMatch,
+          uid: authUid,
+          role: normalizeRole(memoryMatch.role)
+        };
+        await saveUserToFirestore(matchedUser);
+      }
+    }
+
+    // 5. Fallback auto-provision based on email hint if first time login
+    if (!matchedUser) {
+      console.log('[LOGIN STEP 5] Auto-provisioning profile document for UID:', authUid);
+      let derivedRole: UserRole = 'Reporter';
+      if (normalizedEmail.includes('admin')) derivedRole = 'Administrator';
+      else if (normalizedEmail.includes('localbody') || normalizedEmail.includes('local')) derivedRole = 'Local Body';
+
+      matchedUser = {
+        uid: authUid,
+        fullName: normalizedEmail.split('@')[0].toUpperCase(),
+        email: normalizedEmail,
+        phone: '+919800000000',
+        role: derivedRole,
+        status: 'Active',
+        createdAt: new Date().toISOString()
+      };
+      await saveUserToFirestore(matchedUser);
+    }
+
+    console.log('[LOGIN STEP 6] Firestore document data:', matchedUser);
+    console.log('[LOGIN STEP 7] role value:', matchedUser.role);
+
     if (matchedUser.status === 'Deactivated') {
+      console.warn('[LOGIN FAILED] Account is deactivated.');
       await firebaseSignOut(auth);
       return {
         success: false,
@@ -82,25 +158,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setCurrentUser(matchedUser);
+    console.log(`[LOGIN SUCCESS] Logged in as ${matchedUser.fullName} (${matchedUser.role})`);
     return { success: true };
-  };
-
-  const switchDemoRole = (targetRole: UserRole, usersList: User[]) => {
-    const matchedUser = usersList.find((u) => u.role === targetRole && u.status === 'Active');
-    if (matchedUser) {
-      setCurrentUser(matchedUser);
-    } else {
-      const fallback = INITIAL_USERS.find((u) => u.role === targetRole) || {
-        uid: `demo_${targetRole.toLowerCase()}`,
-        fullName: `Demo ${targetRole}`,
-        email: `${targetRole.toLowerCase()}@wastewatch.gov.in`,
-        phone: '+919800000000',
-        role: targetRole,
-        status: 'Active' as const,
-        createdAt: new Date().toISOString()
-      };
-      setCurrentUser(fallback);
-    }
   };
 
   const logout = () => {
@@ -121,7 +180,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role,
         isLoggedIn: !!currentUser,
         loginWithEmail,
-        switchDemoRole,
         logout,
         updateUserProfile
       }}

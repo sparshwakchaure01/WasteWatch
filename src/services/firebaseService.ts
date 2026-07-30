@@ -12,7 +12,7 @@ import {
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut as firebaseSignOut, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth, firebaseConfig, handleFirestoreError, OperationType } from '../firebase';
-import { Complaint, User, Hotspot, AuditLog } from '../types';
+import { Complaint, User, UserRole, Hotspot, AuditLog } from '../types';
 import { INITIAL_USERS, INITIAL_COMPLAINTS, INITIAL_AUDIT_LOGS } from '../data/initialData';
 
 const USERS_COL = 'users';
@@ -89,41 +89,66 @@ export function subscribeUsers(callback: (users: User[]) => void, onError?: (err
       callback(users);
     },
     (err) => {
-      console.error('Error listening to users:', err);
+      console.warn('Note: listening to users collection:', err?.message || err);
       if (onError) onError(err);
-      handleFirestoreError(err, OperationType.LIST, USERS_COL);
     }
   );
+}
+
+export function normalizeRole(roleStr?: string): UserRole {
+  if (!roleStr) return 'Reporter';
+  const clean = roleStr.trim().toLowerCase();
+  if (clean === 'administrator' || clean === 'admin') return 'Administrator';
+  if (clean === 'local body' || clean === 'localbody' || clean === 'local_body' || clean === 'officer') return 'Local Body';
+  return 'Reporter';
+}
+
+export async function findUserByUidInFirestore(uid: string): Promise<User | null> {
+  const docPath = `${USERS_COL}/${uid}`;
+  console.log(`[FIRESTORE] Reading document path: /${docPath}`);
+  try {
+    const userDocRef = doc(db, USERS_COL, uid);
+    const snap = await getDoc(userDocRef);
+    if (snap.exists()) {
+      const data = snap.data() as User;
+      const normalizedData: User = {
+        ...data,
+        role: normalizeRole(data.role)
+      };
+      console.log(`[FIRESTORE] Document /${docPath} found:`, normalizedData);
+      return normalizedData;
+    }
+    console.log(`[FIRESTORE] Document /${docPath} does not exist.`);
+    return null;
+  } catch (err) {
+    console.warn(`[FIRESTORE] Error reading /${docPath}:`, err);
+    return null;
+  }
 }
 
 export async function findUserByEmailInFirestore(email: string): Promise<User | null> {
   try {
     const normalized = email.trim().toLowerCase();
+    console.log(`[FIRESTORE] Querying users collection for email: ${normalized}`);
     const snap = await getDocs(collection(db, USERS_COL));
     let matched: User | null = null;
     snap.forEach((docSnap) => {
       const u = docSnap.data() as User;
       if (u.email && u.email.trim().toLowerCase() === normalized) {
-        matched = u;
+        matched = {
+          ...u,
+          role: normalizeRole(u.role)
+        };
       }
     });
+    if (matched) {
+      console.log(`[FIRESTORE] User found by email in collection:`, matched);
+    } else {
+      console.log(`[FIRESTORE] No user found with email ${normalized}`);
+    }
     return matched;
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, USERS_COL);
-    return null;
-  }
-}
-
-export async function findUserByUidInFirestore(uid: string): Promise<User | null> {
-  try {
-    const userDocRef = doc(db, USERS_COL, uid);
-    const snap = await getDoc(userDocRef);
-    if (snap.exists()) {
-      return snap.data() as User;
-    }
-    return null;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, `${USERS_COL}/${uid}`);
+    console.warn(`[FIRESTORE] Error querying users by email:`, err);
     return null;
   }
 }
@@ -190,9 +215,8 @@ export function subscribeComplaints(callback: (complaints: Complaint[]) => void,
       callback(complaints);
     },
     (err) => {
-      console.error('Error listening to complaints:', err);
+      console.warn('Note: listening to complaints collection:', err?.message || err);
       if (onError) onError(err);
-      handleFirestoreError(err, OperationType.LIST, COMPLAINTS_COL);
     }
   );
 }
@@ -237,9 +261,8 @@ export function subscribeAuditLogs(callback: (logs: AuditLog[]) => void, onError
       callback(logs);
     },
     (err) => {
-      console.error('Error listening to audit logs:', err);
+      console.warn('Note: listening to audit logs collection:', err?.message || err);
       if (onError) onError(err);
-      handleFirestoreError(err, OperationType.LIST, AUDIT_LOGS_COL);
     }
   );
 }

@@ -1,18 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
 import {
   ShieldAlert,
-  UserCheck,
   Building2,
-  ChevronDown,
   LogOut,
-  Bell,
   Menu,
   X,
   AlertOctagon,
-  Sparkles,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -21,9 +17,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, isSidebarOpen }) => {
-  const { currentUser, role, switchDemoRole, logout } = useAuth();
-  const { setActiveTab, stats, usersList } = useApp();
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const { currentUser, role, logout } = useAuth();
+  const { setActiveTab, stats } = useApp();
 
   const getRoleBadgeStyle = (r: UserRole) => {
     switch (r) {
@@ -85,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, isSidebarOpen }
           <span>Computer Engg. | Amrutvahini College of Engineering</span>
         </div>
 
-        {/* Right Actions & Demo Role Switcher */}
+        {/* Right Actions */}
         <div className="flex items-center gap-3">
           {/* Active Hotspots Alert Pill */}
           {stats.activeHotspots > 0 && (
@@ -99,42 +94,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, isSidebarOpen }
             </button>
           )}
 
-          {/* Quick Role Switcher Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowRoleMenu(!showRoleMenu)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${getRoleBadgeStyle(
-                role
-              )}`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{role}</span>
-              <ChevronDown className="w-3 h-3 opacity-70" />
-            </button>
-
-            {showRoleMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-[#22223B] border border-[#4A4E69] rounded-2xl shadow-xl py-2 z-50 animate-in fade-in zoom-in-95">
-                <div className="px-3 py-1.5 text-[11px] font-bold text-[#9A8C98] uppercase tracking-wider border-b border-[#4A4E69]/50 mb-1">
-                  Switch Active Role (Demo)
-                </div>
-                {(['Reporter', 'Local Body', 'Administrator'] as UserRole[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => {
-                      switchDemoRole(r, usersList);
-                      setShowRoleMenu(false);
-                      setActiveTab('dashboard');
-                    }}
-                    className={`w-full text-left px-3 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#4A4E69]/40 transition-colors ${
-                      role === r ? 'text-[#C9ADA7] font-bold' : 'text-stone-300'
-                    }`}
-                  >
-                    <span>{r} View</span>
-                    {role === r && <UserCheck className="w-3.5 h-3.5 text-[#C9ADA7]" />}
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* User Role Badge */}
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${getRoleBadgeStyle(role)}`}>
+            <span>{role}</span>
           </div>
 
           {/* User Profile Pill & Logout */}

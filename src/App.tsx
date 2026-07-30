@@ -36,10 +36,19 @@ const MainContent: React.FC = () => {
   // Active Tab View Routing
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'dashboard':
-        if (role === 'Local Body') return <LocalBodyDashboard />;
-        if (role === 'Administrator') return <AdminDashboard />;
+      case 'dashboard': {
+        console.log('[ROUTING] role value:', role);
+        if (role === 'Local Body') {
+          console.log('[ROUTING] selected dashboard: LocalBodyDashboard');
+          return <LocalBodyDashboard />;
+        }
+        if (role === 'Administrator') {
+          console.log('[ROUTING] selected dashboard: AdminDashboard');
+          return <AdminDashboard />;
+        }
+        console.log('[ROUTING] selected dashboard: ReporterDashboard');
         return <ReporterDashboard />;
+      }
       case 'report-waste':
         return <ReportWastePage />;
       case 'my-complaints':
