@@ -1,12 +1,11 @@
 {
   "projectId": "wastewatch-297c7",
-  "appId": "1:761359028256:web:cc65b6ce864a5372d62c45",
+  "appId": "1:761359028256:web:894daa528f0e3d96d62c45",
   "apiKey": "AIzaSyDRdyKrFJd9obJ1A1ejB-TCm3c3FZcXwXo",
   "authDomain": "wastewatch-297c7.firebaseapp.com",
   "firestoreDatabaseId": "(default)",
   "storageBucket": "wastewatch-297c7.firebasestorage.app",
   "messagingSenderId": "761359028256",
-  "measurementId": "G-77EB7D8EV1",
-  "oAuthClientId": "",
+  "measurementId": "",
   "recaptchaSiteKey": ""
 }
