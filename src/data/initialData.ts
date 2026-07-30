@@ -31,7 +31,7 @@ export const INITIAL_USERS: User[] = [
     createdAt: '2026-06-15T09:00:00Z'
   },
   {
-    uid: 'user_admin_01',
+    uid: 'yGYeMshXHzLOlcfjlUGSBu7efiF2',
     fullName: 'Dr. S. K. Shinde (Admin)',
     email: 'admin@wastewatch.gov.in',
     phone: '+919890099887',

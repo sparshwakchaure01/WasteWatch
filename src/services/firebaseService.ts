@@ -9,12 +9,9 @@ import {
   onSnapshot,
   query,
 } from 'firebase/firestore';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut
-} from 'firebase/auth';
-import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut as firebaseSignOut, signInWithEmailAndPassword } from 'firebase/auth';
+import { db, auth, firebaseConfig, handleFirestoreError, OperationType } from '../firebase';
 import { Complaint, User, Hotspot, AuditLog } from '../types';
 import { INITIAL_USERS, INITIAL_COMPLAINTS, INITIAL_AUDIT_LOGS } from '../data/initialData';
 
@@ -24,7 +21,7 @@ const HOTSPOTS_COL = 'hotspots';
 const AUDIT_LOGS_COL = 'audit_logs';
 
 /**
- * Seed initial Firestore collections if empty
+ * Seed initial Firestore collections if empty, ensuring Admin UID is present
  */
 export async function seedInitialFirestoreData() {
   try {
@@ -34,6 +31,24 @@ export async function seedInitialFirestoreData() {
       console.log('Seeding initial users into Firestore...');
       for (const u of INITIAL_USERS) {
         await setDoc(doc(db, USERS_COL, u.uid), u);
+      }
+    } else {
+      // Ensure the Admin UID document exists even if collection was partially populated
+      const adminUid = 'yGYeMshXHzLOlcfjlUGSBu7efiF2';
+      const adminDocRef = doc(db, USERS_COL, adminUid);
+      const adminSnap = await getDoc(adminDocRef);
+      if (!adminSnap.exists()) {
+        const adminUser: User = {
+          uid: adminUid,
+          fullName: 'System Administrator',
+          email: 'admin@wastewatch.gov.in',
+          phone: '+919890099887',
+          role: 'Administrator',
+          status: 'Active',
+          department: 'Municipal Governance',
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(adminDocRef, adminUser, { merge: true });
       }
     }
 
@@ -115,8 +130,19 @@ export async function findUserByUidInFirestore(uid: string): Promise<User | null
 
 export async function createFirebaseAuthUser(email: string, pass: string): Promise<string | null> {
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-    return userCredential.user.uid;
+    // Use secondary Firebase App instance to prevent logging out current Admin user session
+    const tempAppName = `AdminUserCreationApp_${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+    
+    const userCredential = await createUserWithEmailAndPassword(tempAuth, email, pass);
+    const newUid = userCredential.user.uid;
+    
+    // Clean up temporary session
+    await firebaseSignOut(tempAuth);
+    await deleteApp(tempApp);
+    
+    return newUid;
   } catch (err: any) {
     console.warn('Firebase Auth user creation note (may already exist or offline):', err.message);
     return null;
