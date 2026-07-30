@@ -4,22 +4,18 @@ import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
 import { MapWidget } from '../components/MapWidget';
+import { SafeImage } from '../components/SafeImage';
 import { Complaint } from '../types';
 import {
-  Building2,
   AlertOctagon,
-  ClipboardList,
   Clock,
   CheckCircle2,
-  ArrowRight,
   ShieldCheck,
   MapPin,
-  ListFilter,
   CheckCircle,
   XCircle,
   Eye,
   AlertTriangle,
-  MessageSquare,
 } from 'lucide-react';
 
 export const LocalBodyDashboard: React.FC = () => {
@@ -36,9 +32,6 @@ export const LocalBodyDashboard: React.FC = () => {
 
   const pendingApprovalComplaints = complaints.filter((c) => c.status === 'Pending Approval');
   const pendingComplaints = complaints.filter((c) => c.status === 'Pending');
-  const inProgressComplaints = complaints.filter((c) => c.status === 'In Progress');
-  const resolvedComplaints = complaints.filter((c) => c.status === 'Resolved');
-  const rejectedComplaints = complaints.filter((c) => c.status === 'Rejected');
 
   const handleOpenReject = (c: Complaint, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -175,7 +168,7 @@ export const LocalBodyDashboard: React.FC = () => {
         {/* Rejected */}
         <div
           onClick={() => setActiveQueueTab('all')}
-          className="p-4 rounded-2xl border bg-white border-rose-200/80 shadow-card space-y-0.5"
+          className="p-4 rounded-2xl border bg-white border-rose-200/80 shadow-card space-y-0.5 cursor-pointer"
         >
           <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider flex items-center justify-between">
             <span>Rejected</span>
@@ -261,11 +254,13 @@ export const LocalBodyDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex gap-3 items-start">
-                      <img
-                        src={c.photoUrl}
-                        alt="Waste location"
-                        className="w-20 h-20 rounded-xl object-cover shrink-0 border border-stone-200"
-                      />
+                      <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-stone-200 bg-stone-900">
+                        <SafeImage
+                          src={c.photoUrl}
+                          alt="Waste location"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                       <div className="space-y-1 min-w-0">
                         <CategoryBadge category={c.category} size="sm" />
                         <p className="text-xs font-bold text-[#22223B] truncate flex items-center gap-1">
@@ -426,4 +421,3 @@ export const LocalBodyDashboard: React.FC = () => {
     </div>
   );
 };
-

@@ -5,18 +5,12 @@ import { ComplaintStatus } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
 import { MapWidget } from '../components/MapWidget';
+import { SafeImage } from '../components/SafeImage';
 import { formatCoordinates } from '../utils/geo';
 import {
   ArrowLeft,
   MapPin,
-  Calendar,
-  User,
-  Phone,
-  CheckCircle2,
-  Clock,
   AlertTriangle,
-  RefreshCw,
-  FileText,
   ShieldCheck,
   Trash2,
   CheckCircle,
@@ -79,7 +73,7 @@ export const ComplaintDetailsPage: React.FC = () => {
   };
 
   const handleConfirmDelete = () => {
-    deleteComplaint(complaint.id, deleteReason, currentUser?.fullName || 'System Administrator', currentUser?.uid);
+    deleteComplaint(complaint.id, currentUser);
     setShowDeleteModal(false);
     setActiveTab('my-complaints');
   };
@@ -205,11 +199,11 @@ export const ComplaintDetailsPage: React.FC = () => {
           <h3 className="font-heading text-sm font-bold text-[#22223B] uppercase tracking-wider">
             Photo Evidence
           </h3>
-          <div className="rounded-2xl overflow-hidden border border-stone-200 shadow-inner">
-            <img
+          <div className="rounded-2xl overflow-hidden border border-stone-200 shadow-inner h-64 bg-stone-900">
+            <SafeImage
               src={complaint.photoUrl}
               alt={complaint.category}
-              className="w-full h-64 object-cover"
+              className="w-full h-full object-cover"
             />
           </div>
 
@@ -443,8 +437,7 @@ export const ComplaintDetailsPage: React.FC = () => {
                 This action will:
               </p>
               <ul className="list-disc list-inside text-[11px] text-rose-800 space-y-0.5">
-                <li>Permanently remove Firestore document record</li>
-                <li>Delete evidence image from Firebase Storage</li>
+                <li>Permanently remove document record from Firestore</li>
                 <li>Recalculate live GIS hotspots & clusters</li>
                 <li>Remove from analytics & aggregate metrics</li>
                 <li>Write an immutable deletion entry to system audit logs</li>
@@ -485,4 +478,3 @@ export const ComplaintDetailsPage: React.FC = () => {
     </div>
   );
 };
-

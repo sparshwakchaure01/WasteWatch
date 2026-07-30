@@ -4,7 +4,8 @@ import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
 import { MapWidget } from '../components/MapWidget';
-import { PlusCircle, ClipboardList, Clock, CheckCircle2, ArrowRight, MapPin, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { SafeImage } from '../components/SafeImage';
+import { PlusCircle, Clock, CheckCircle2, ArrowRight, MapPin, AlertTriangle } from 'lucide-react';
 
 export const ReporterDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -157,11 +158,13 @@ export const ReporterDashboard: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <img
-                      src={c.photoUrl}
-                      alt={c.category}
-                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-stone-200"
-                    />
+                    <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-stone-200 bg-stone-900">
+                      <SafeImage
+                        src={c.photoUrl}
+                        alt={c.category}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-bold text-[#22223B] truncate">#{c.id}</span>
@@ -190,4 +193,3 @@ export const ReporterDashboard: React.FC = () => {
     </div>
   );
 };
-

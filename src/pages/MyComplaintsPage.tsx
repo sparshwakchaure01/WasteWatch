@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { ComplaintStatus, WasteCategory } from '../types';
+import { WasteCategory } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { CategoryBadge } from '../components/CategoryBadge';
+import { SafeImage } from '../components/SafeImage';
 import { Search, Filter, Calendar, MapPin, ArrowRight, ClipboardList } from 'lucide-react';
 
 export const MyComplaintsPage: React.FC = () => {
@@ -121,15 +122,15 @@ export const MyComplaintsPage: React.FC = () => {
             >
               <div>
                 <div className="relative h-44 bg-stone-900">
-                  <img
+                  <SafeImage
                     src={c.photoUrl}
                     alt={c.category}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute top-3 left-3">
+                  <div className="absolute top-3 left-3 z-10">
                     <StatusBadge status={c.status} />
                   </div>
-                  <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-white font-bold">
+                  <div className="absolute bottom-3 right-3 z-10 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-white font-bold">
                     #{c.id}
                   </div>
                 </div>

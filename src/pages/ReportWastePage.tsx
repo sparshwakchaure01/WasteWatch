@@ -84,6 +84,7 @@ export const ReportWastePage: React.FC = () => {
       const created = addComplaint({
         reporterId: currentUser?.uid || 'user_anon',
         reporterName: currentUser?.fullName || 'Citizen Reporter',
+        reporterEmail: currentUser?.email || 'reporter@wastewatch.gov.in',
         reporterPhone: currentUser?.phone || '+919800000000',
         photoUrl,
         latitude: coords.lat,

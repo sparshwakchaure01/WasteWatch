@@ -1,3 +1,5 @@
+import { Complaint, Hotspot, WasteCategory } from '../types';
+
 /**
  * Calculates the great-circle distance between two points on Earth using the Haversine formula.
  * @returns Distance in meters
@@ -39,7 +41,6 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
     if (response.ok) {
       const data = await response.json();
       if (data && data.display_name) {
-        // Return a condensed version of address if available
         const addr = data.address;
         if (addr) {
           const parts = [
@@ -56,4 +57,91 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
     console.warn('Geocoding lookup failed, returning default coordinate string:', err);
   }
   return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+}
+
+/**
+ * Automatically calculates Frequent Dumping Zones (Hotspots).
+ * Identifies clusters of 3 or more approved complaints within ~100m radius.
+ */
+export function detectHotspots(complaints: Complaint[]): Hotspot[] {
+  // Only include approved/active complaints (exclude Pending Approval and Rejected)
+  const approved = complaints.filter(
+    (c) => c.status === 'Pending' || c.status === 'In Progress' || c.status === 'Resolved'
+  );
+
+  const clusters: { centerLat: number; centerLng: number; items: Complaint[] }[] = [];
+  const radiusMeters = 100;
+
+  for (const c of approved) {
+    let addedToCluster = false;
+    for (const cluster of clusters) {
+      const dist = haversineDistanceMeters(
+        cluster.centerLat,
+        cluster.centerLng,
+        c.latitude,
+        c.longitude
+      );
+
+      if (dist <= radiusMeters) {
+        cluster.items.push(c);
+        // Recalculate centroid
+        const totalLat = cluster.items.reduce((sum, item) => sum + item.latitude, 0);
+        const totalLng = cluster.items.reduce((sum, item) => sum + item.longitude, 0);
+        cluster.centerLat = totalLat / cluster.items.length;
+        cluster.centerLng = totalLng / cluster.items.length;
+        addedToCluster = true;
+        break;
+      }
+    }
+
+    if (!addedToCluster) {
+      clusters.push({
+        centerLat: c.latitude,
+        centerLng: c.longitude,
+        items: [c],
+      });
+    }
+  }
+
+  // Filter clusters with >= 3 items
+  const hotspots: Hotspot[] = [];
+  let index = 1;
+  const now = new Date().toISOString();
+
+  for (const cl of clusters) {
+    if (cl.items.length >= 3) {
+      // Find primary category
+      const catCounts: Record<string, number> = {};
+      cl.items.forEach((item) => {
+        catCounts[item.category] = (catCounts[item.category] || 0) + 1;
+      });
+
+      let topCategory: WasteCategory = 'Household Waste';
+      let maxCatCount = 0;
+      Object.entries(catCounts).forEach(([cat, count]) => {
+        if (count > maxCatCount) {
+          maxCatCount = count;
+          topCategory = cat as WasteCategory;
+        }
+      });
+
+      // Nearest location name
+      const locationName = cl.items[0].locationName || 'Cluster Dumping Area';
+
+      hotspots.push({
+        id: `HOT-${String(index++).padStart(3, '0')}`,
+        locationName,
+        centerLat: cl.centerLat,
+        centerLng: cl.centerLng,
+        complaintCount: cl.items.length,
+        complaintIds: cl.items.map((i) => i.id),
+        status: 'Active',
+        primaryCategory: topCategory,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  }
+
+  return hotspots;
 }

@@ -15,6 +15,8 @@ export const ManageUsersPage: React.FC = () => {
 
   // Form states
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('Password123');
   const [phone, setPhone] = useState('+91');
   const [userRole, setUserRole] = useState<UserRole>('Local Body');
   const [department, setDepartment] = useState('Sanitation & Waste Management');
@@ -23,6 +25,7 @@ export const ManageUsersPage: React.FC = () => {
   const filteredUsers = usersList.filter(
     (u) =>
       u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
       u.phone.includes(searchQuery) ||
       u.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -30,6 +33,8 @@ export const ManageUsersPage: React.FC = () => {
   const handleOpenAdd = () => {
     setEditingUser(null);
     setFullName('');
+    setEmail('');
+    setPassword('Password123');
     setPhone('+91');
     setUserRole('Local Body');
     setDepartment('Sanitation & Waste Management');
@@ -40,6 +45,8 @@ export const ManageUsersPage: React.FC = () => {
   const handleOpenEdit = (u: User) => {
     setEditingUser(u);
     setFullName(u.fullName);
+    setEmail(u.email || '');
+    setPassword('');
     setPhone(u.phone);
     setUserRole(u.role);
     setDepartment(u.department || 'Sanitation & Waste Management');
@@ -49,24 +56,29 @@ export const ManageUsersPage: React.FC = () => {
 
   const handleSubmitUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !phone) return;
+    if (!fullName || !email) return;
 
     if (editingUser) {
       editUser(editingUser.uid, {
         fullName,
+        email,
         phone,
         role: userRole,
         department: userRole === 'Local Body' ? department : undefined,
         jurisdictionZone: userRole === 'Local Body' ? jurisdictionZone : undefined,
       });
     } else {
-      addUser({
-        fullName,
-        phone,
-        role: userRole,
-        department: userRole === 'Local Body' ? department : undefined,
-        jurisdictionZone: userRole === 'Local Body' ? jurisdictionZone : undefined,
-      });
+      addUser(
+        {
+          fullName,
+          email,
+          phone,
+          role: userRole,
+          department: userRole === 'Local Body' ? department : undefined,
+          jurisdictionZone: userRole === 'Local Body' ? jurisdictionZone : undefined,
+        },
+        password || 'Password123'
+      );
     }
 
     setShowAddModal(false);
@@ -135,6 +147,7 @@ export const ManageUsersPage: React.FC = () => {
             <thead className="bg-[#22223B] text-white text-[11px] font-bold uppercase tracking-wider">
               <tr>
                 <th className="p-4">User Name</th>
+                <th className="p-4">Email Address</th>
                 <th className="p-4">Phone Number</th>
                 <th className="p-4">Role</th>
                 <th className="p-4">Department / Zone</th>
@@ -154,7 +167,8 @@ export const ManageUsersPage: React.FC = () => {
                       <div className="text-[10px] text-stone-400 font-normal">ID: {u.uid}</div>
                     </div>
                   </td>
-                  <td className="p-4 font-mono">{u.phone}</td>
+                  <td className="p-4 font-semibold text-stone-700">{u.email}</td>
+                  <td className="p-4 font-mono text-stone-600">{u.phone}</td>
                   <td className="p-4">
                     <span
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
@@ -259,7 +273,40 @@ export const ManageUsersPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-[#22223B] mb-1">
-                  Registered Mobile Number *
+                  Email Address * (Used for Firebase Auth Login)
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="rajesh@wastewatch.gov.in"
+                  className="w-full p-2.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#22223B]"
+                  required
+                />
+              </div>
+
+              {!editingUser && (
+                <div>
+                  <label className="block text-xs font-semibold text-[#22223B] mb-1">
+                    Initial Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full p-2.5 text-xs rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-[#22223B]"
+                    required
+                  />
+                  <p className="text-[10px] text-stone-500 mt-1">
+                    Password will be created in Firebase Auth. (Never stored in Firestore).
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-[#22223B] mb-1">
+                  Mobile Number *
                 </label>
                 <input
                   type="tel"

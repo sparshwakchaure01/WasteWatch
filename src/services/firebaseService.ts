@@ -8,13 +8,13 @@ import {
   deleteDoc,
   onSnapshot,
   query,
-  where,
-  orderBy,
-  serverTimestamp,
-  writeBatch
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage, handleFirestoreError, OperationType } from '../firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut
+} from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { Complaint, User, Hotspot, AuditLog } from '../types';
 import { INITIAL_USERS, INITIAL_COMPLAINTS, INITIAL_AUDIT_LOGS } from '../data/initialData';
 
@@ -60,37 +60,6 @@ export async function seedInitialFirestoreData() {
 }
 
 /**
- * Upload Complaint Photo to Firebase Storage
- */
-export async function uploadComplaintPhotoToStorage(complaintId: string, photoDataUrl: string): Promise<string> {
-  if (!photoDataUrl || !photoDataUrl.startsWith('data:')) {
-    return photoDataUrl;
-  }
-  try {
-    const storageRef = ref(storage, `complaints/${complaintId}_${Date.now()}.jpg`);
-    await uploadString(storageRef, photoDataUrl, 'data_url');
-    const downloadUrl = await getDownloadURL(storageRef);
-    return downloadUrl;
-  } catch (err) {
-    console.warn('Firebase Storage upload fallback:', err);
-    return photoDataUrl;
-  }
-}
-
-/**
- * Delete photo from Firebase Storage
- */
-export async function deleteComplaintPhotoFromStorage(photoUrl: string) {
-  if (!photoUrl || !photoUrl.includes('firebasestorage')) return;
-  try {
-    const photoRef = ref(storage, photoUrl);
-    await deleteObject(photoRef);
-  } catch (err) {
-    console.warn('Firebase Storage deletion note:', err);
-  }
-}
-
-/**
  * Firestore User Operations
  */
 export function subscribeUsers(callback: (users: User[]) => void, onError?: (err: any) => void) {
@@ -112,20 +81,44 @@ export function subscribeUsers(callback: (users: User[]) => void, onError?: (err
   );
 }
 
-export async function findUserByPhoneInFirestore(phone: string): Promise<User | null> {
+export async function findUserByEmailInFirestore(email: string): Promise<User | null> {
   try {
-    const normalized = phone.trim().replace(/\s+/g, '');
+    const normalized = email.trim().toLowerCase();
     const snap = await getDocs(collection(db, USERS_COL));
     let matched: User | null = null;
     snap.forEach((docSnap) => {
       const u = docSnap.data() as User;
-      if (u.phone && u.phone.trim().replace(/\s+/g, '') === normalized) {
+      if (u.email && u.email.trim().toLowerCase() === normalized) {
         matched = u;
       }
     });
     return matched;
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, USERS_COL);
+    return null;
+  }
+}
+
+export async function findUserByUidInFirestore(uid: string): Promise<User | null> {
+  try {
+    const userDocRef = doc(db, USERS_COL, uid);
+    const snap = await getDoc(userDocRef);
+    if (snap.exists()) {
+      return snap.data() as User;
+    }
+    return null;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, `${USERS_COL}/${uid}`);
+    return null;
+  }
+}
+
+export async function createFirebaseAuthUser(email: string, pass: string): Promise<string | null> {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    return userCredential.user.uid;
+  } catch (err: any) {
+    console.warn('Firebase Auth user creation note (may already exist or offline):', err.message);
     return null;
   }
 }

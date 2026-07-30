@@ -5,6 +5,7 @@ export type UserStatus = 'Active' | 'Deactivated';
 export interface User {
   uid: string;
   fullName: string;
+  email: string;
   phone: string;
   role: UserRole;
   status: UserStatus;
@@ -40,6 +41,7 @@ export interface Complaint {
   id: string;
   reporterId: string;
   reporterName: string;
+  reporterEmail: string;
   reporterPhone: string;
   photoUrl: string;
   latitude: number;

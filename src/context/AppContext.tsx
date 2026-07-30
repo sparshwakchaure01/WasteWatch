@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Complaint, Hotspot, ComplaintStatus, WasteCategory, SystemStats, User, AuditLog } from '../types';
-import { detectHotspots } from '../utils/hotspotEngine';
+import {
+  Complaint,
+  ComplaintStatus,
+  Hotspot,
+  User,
+  AuditLog,
+  WasteCategory,
+  SystemStats,
+} from '../types';
+import { detectHotspots } from '../utils/geo';
 import {
   seedInitialFirestoreData,
   subscribeComplaints,
@@ -13,9 +21,8 @@ import {
   updateUserInFirestore,
   deleteUserFromFirestore,
   saveAuditLogToFirestore,
-  uploadComplaintPhotoToStorage,
-  deleteComplaintPhotoFromStorage,
-  syncHotspotsToFirestore
+  syncHotspotsToFirestore,
+  createFirebaseAuthUser
 } from '../services/firebaseService';
 import { INITIAL_COMPLAINTS, INITIAL_USERS, INITIAL_AUDIT_LOGS } from '../data/initialData';
 
@@ -33,7 +40,7 @@ interface AppContextType {
   rejectComplaint: (id: string, reason: string, officerName: string, officerUid?: string) => Promise<void>;
   updateComplaintStatus: (id: string, status: ComplaintStatus, notes?: string, officerName?: string, userUid?: string) => Promise<void>;
   deleteComplaint: (id: string, currentUser?: User) => Promise<boolean>;
-  addUser: (newUser: Omit<User, 'uid' | 'createdAt' | 'status'>, currentUser?: User) => Promise<User>;
+  addUser: (newUser: Omit<User, 'uid' | 'createdAt' | 'status'>, password?: string, currentUser?: User) => Promise<User>;
   editUser: (uid: string, updates: Partial<User>, currentUser?: User) => Promise<void>;
   toggleUserStatus: (uid: string, currentUser?: User) => Promise<void>;
   deleteUser: (uid: string, currentUser?: User) => Promise<void>;
@@ -143,15 +150,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newId = `CMP-${new Date().getFullYear()}-${String(complaints.length + 1).padStart(3, '0')}`;
     const now = new Date().toISOString();
 
-    // Upload photo to Firebase Storage if base64/dataURL
-    let finalPhotoUrl = data.photoUrl;
-    if (data.photoUrl && data.photoUrl.startsWith('data:')) {
-      finalPhotoUrl = await uploadComplaintPhotoToStorage(newId, data.photoUrl);
-    }
-
     const created: Complaint = {
       ...data,
-      photoUrl: finalPhotoUrl,
       id: newId,
       status: 'Pending Approval',
       createdAt: now,
@@ -161,7 +161,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Update local state immediately for snappy UI
     setComplaints((prev) => [created, ...prev]);
 
-    // Save to Firestore
+    // Save compressed Base64 photo & details directly to Firestore
     await saveComplaintToFirestore(created);
 
     // Record Audit Log
@@ -171,7 +171,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userRole: currentUser?.role || 'Reporter',
       action: 'Complaint Submission',
       complaintId: newId,
-      details: `Submitted waste complaint #${newId} at ${data.locationName} (Pending Approval)`
+      details: `Submitted waste complaint #${newId} at ${data.locationName} (Base64 image in Firestore)`
     });
 
     showToast(`Complaint #${newId} submitted! Awaiting Local Body approval.`, 'success');
@@ -275,18 +275,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return false;
     }
 
-    const targetComplaint = complaints.find((c) => c.id === id);
-
     // Remove from local state
     setComplaints((prev) => prev.filter((c) => c.id !== id));
 
     // Delete document from Firestore
     await deleteComplaintFromFirestore(id);
-
-    // Delete photo from Firebase Storage if present
-    if (targetComplaint?.photoUrl) {
-      await deleteComplaintPhotoFromStorage(targetComplaint.photoUrl);
-    }
 
     // Write audit log entry
     await addAuditLog({
@@ -295,17 +288,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userRole: 'Administrator',
       action: 'Complaint Deletion',
       complaintId: id,
-      details: `Permanently deleted complaint #${id}, removed image from Firebase Storage, and updated analytics.`
+      details: `Permanently deleted complaint #${id} from Firestore.`
     });
 
-    showToast(`Complaint #${id} permanently deleted from Firestore & Storage.`, 'info');
+    showToast(`Complaint #${id} permanently deleted from Firestore.`, 'info');
     return true;
   };
 
-  const addUser = async (newUser: Omit<User, 'uid' | 'createdAt' | 'status'>, currentUser?: User): Promise<User> => {
+  const addUser = async (
+    newUser: Omit<User, 'uid' | 'createdAt' | 'status'>,
+    password?: string,
+    currentUser?: User
+  ): Promise<User> => {
+    let assignedUid = `user_${Date.now()}`;
+
+    // Create user in Firebase Auth if email and password are provided
+    if (newUser.email && password) {
+      const authUid = await createFirebaseAuthUser(newUser.email, password);
+      if (authUid) {
+        assignedUid = authUid;
+      }
+    }
+
     const user: User = {
       ...newUser,
-      uid: `user_${Date.now()}`,
+      uid: assignedUid,
       status: 'Active',
       createdBy: currentUser?.fullName || 'Admin',
       createdAt: new Date().toISOString(),
@@ -313,7 +320,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setUsersList((prev) => [user, ...prev]);
 
-    // Save to Firestore
+    // Save profile document in Firestore (never saving password)
     await saveUserToFirestore(user);
 
     await addAuditLog({
@@ -322,7 +329,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userRole: 'Administrator',
       action: 'User Creation',
       targetUserId: user.uid,
-      details: `Created new ${user.role} user: ${user.fullName} (${user.phone})`
+      details: `Created new ${user.role} user: ${user.fullName} (${user.email})`
     });
 
     showToast(`Registered new ${user.role}: ${user.fullName}`, 'success');
